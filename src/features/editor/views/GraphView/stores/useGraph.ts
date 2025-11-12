@@ -3,6 +3,7 @@ import type { CanvasDirection } from "reaflow/dist/layout/elkLayout";
 import { create } from "zustand";
 import { SUPPORTED_LIMIT } from "../../../../../constants/graph";
 import useJson from "../../../../../store/useJson";
+import useFile from "../../../../../store/useFile";
 import type { EdgeData, NodeData } from "../../../../../types/graph";
 import { parser } from "../lib/jsonParser";
 
@@ -36,6 +37,7 @@ interface GraphActions {
   setDirection: (direction: CanvasDirection) => void;
   setViewPort: (ref: ViewPort) => void;
   setSelectedNode: (nodeData: NodeData) => void;
+  updateNodeValue: (path: NodeData["path"], newValue: any) => void;
   focusFirstNode: () => void;
   toggleFullscreen: (value: boolean) => void;
   zoomIn: () => void;
@@ -49,6 +51,37 @@ const useGraph = create<Graph & GraphActions>((set, get) => ({
   ...initialStates,
   clearGraph: () => set({ nodes: [], edges: [], loading: false }),
   setSelectedNode: nodeData => set({ selectedNode: nodeData }),
+  updateNodeValue: (path, newValue) => {
+    const currentJson = useJson.getState().json;
+    
+    try {
+      const jsonObj = JSON.parse(currentJson);
+      
+      // Navigate to the target using the path and update the value
+      if (!path || path.length === 0) {
+        // Root level update
+        const newJsonStr = JSON.stringify(newValue, null, 2);
+        useJson.getState().setJson(newJsonStr);
+        useFile.getState().setContents({ contents: newJsonStr, hasChanges: true });
+        return;
+      }
+      
+      let target = jsonObj;
+      for (let i = 0; i < path.length - 1; i++) {
+        target = target[path[i]];
+      }
+      
+      // Update the value at the final path segment
+      target[path[path.length - 1]] = newValue;
+      
+      // Update both the JSON store and the file contents
+      const newJsonStr = JSON.stringify(jsonObj, null, 2);
+      useJson.getState().setJson(newJsonStr);
+      useFile.getState().setContents({ contents: newJsonStr, hasChanges: true });
+    } catch (error) {
+      console.error("Failed to update node value:", error);
+    }
+  },
   setGraph: (data, options) => {
     const { nodes, edges } = parser(data ?? useJson.getState().json);
 

@@ -1,9 +1,10 @@
 import React from "react";
 import type { ModalProps } from "@mantine/core";
-import { Modal, Stack, Text, ScrollArea, Flex, CloseButton } from "@mantine/core";
+import { Modal, Stack, Text, ScrollArea, Flex, CloseButton, Button, Group } from "@mantine/core";
 import { CodeHighlight } from "@mantine/code-highlight";
 import type { NodeData } from "../../../types/graph";
 import useGraph from "../../editor/views/GraphView/stores/useGraph";
+import { useModal } from "../../../store/useModal";
 
 // return object from json removing array and object fields
 const normalizeNodeData = (nodeRows: NodeData["text"]) => {
@@ -28,6 +29,24 @@ const jsonPathToString = (path?: NodeData["path"]) => {
 
 export const NodeModal = ({ opened, onClose }: ModalProps) => {
   const nodeData = useGraph(state => state.selectedNode);
+  const setVisible = useModal(state => state.setVisible);
+
+  const handleEditClick = () => {
+    setVisible("NodeModal", false);
+    setVisible("EditNodeModal", true);
+  };
+
+  // Check if the node has editable name or color fields
+  const hasEditableValue = React.useMemo(() => {
+    if (!nodeData?.text) return false;
+    
+    // Check if there's a "name" or "color" field
+    return nodeData.text.some(row => 
+      (row.key === "name" || row.key === "color") && 
+      row.type !== "object" && 
+      row.type !== "array"
+    );
+  }, [nodeData]);
 
   return (
     <Modal size="auto" opened={opened} onClose={onClose} centered withCloseButton={false}>
@@ -37,7 +56,14 @@ export const NodeModal = ({ opened, onClose }: ModalProps) => {
             <Text fz="xs" fw={500}>
               Content
             </Text>
-            <CloseButton onClick={onClose} />
+            <Flex gap="xs" align="center">
+              {hasEditableValue && (
+                <Button size="xs" onClick={handleEditClick}>
+                  Edit
+                </Button>
+              )}
+              <CloseButton onClick={onClose} />
+            </Flex>
           </Flex>
           <ScrollArea.Autosize mah={250} maw={600}>
             <CodeHighlight
